@@ -11,6 +11,19 @@ const nextConfig = {
     // your project has type errors.
     ignoreBuildErrors: true,
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'static.integration.app',
+        pathname: '/files/**',
+      },
+    ],
+  },
+  // Increase serverless function timeout
+  functions: {
+    maxDuration: 60, // Increase to 60 seconds
+  }
 }
 
 module.exports = nextConfig 

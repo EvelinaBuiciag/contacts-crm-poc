@@ -6,7 +6,12 @@ import { IntegrationProvider } from "./integration-provider"
 import { AuthProvider } from "./auth-provider"
 import { Header } from "@/components/header"
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ 
+  subsets: ["latin"],
+  display: 'swap',
+  preload: true,
+  adjustFontFallback: true
+})
 
 export const metadata: Metadata = {
   title: {
@@ -23,6 +28,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="light">
+      <head>
+        <link
+          rel="preload"
+          href={inter.style.fontFamily}
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body className={inter.className}>
         <AuthProvider>
           <IntegrationProvider>
