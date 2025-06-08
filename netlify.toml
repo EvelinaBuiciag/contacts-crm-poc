@@ -4,9 +4,16 @@
 
 [build.environment]
   NEXT_TELEMETRY_DISABLED = "1"
+  NODE_VERSION = "20"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+[functions]
+  # Increase the timeout for all functions
+  node_bundler = "esbuild"
+  external_node_modules = ["mongodb", "mongoose"]
+  included_files = ["src/models/**", "src/lib/**"]
 
 [[headers]]
   for = "/*"
@@ -14,4 +21,11 @@
     X-Frame-Options = "DENY"
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
-    Referrer-Policy = "strict-origin-when-cross-origin" 
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Handle Next.js routing
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/nextjs-server"
+  status = 200
+  force = true 
