@@ -1,6 +1,6 @@
 [build]
   command = "npm run build"
-  publish = ".next"
+  publish = "dist/standalone/.next"
 
 [build.environment]
   NEXT_TELEMETRY_DISABLED = "1"
@@ -26,14 +26,20 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
 
 [[headers]]
-  for = "/_next/static/*"
+  for = "/_next/*"
   [headers.values]
-    cache-control = "public, max-age=31536000, immutable"
+    cache-control = '''
+    public,
+    max-age=31536000,
+    immutable'''
 
 [[headers]]
   for = "/static/*"
   [headers.values]
-    cache-control = "public, max-age=31536000, immutable"
+    cache-control = '''
+    public,
+    max-age=31536000,
+    immutable'''
 
 # Handle Next.js static files
 [[redirects]]

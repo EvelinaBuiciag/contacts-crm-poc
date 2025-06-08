@@ -1,2 +1,6 @@
-/_next/static/*  /static/:splat  200
+# Serve static files
+/_next/*  /_next/:splat  200
+/static/*  /static/:splat  200
+
+# Handle dynamic routes
 /*  /.netlify/functions/nextjs-server  200 
