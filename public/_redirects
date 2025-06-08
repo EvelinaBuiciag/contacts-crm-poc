@@ -1,0 +1,2 @@
+/_next/static/*  /static/:splat  200
+/*  /.netlify/functions/nextjs-server  200 
