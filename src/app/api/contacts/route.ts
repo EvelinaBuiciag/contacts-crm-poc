@@ -8,10 +8,22 @@ import { syncContact } from '@/lib/sync-service';
 import crypto from 'crypto';
 import mongoose from 'mongoose';
 
+// Set timeout for API routes
+const TIMEOUT = 50000; // 50 seconds
+
+// Helper function to handle timeouts
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs)
+    )
+  ]);
+}
+
 export async function GET(request: NextRequest) {
   try {
     console.log('Starting GET operation');
-    // Get the customer ID from auth
     const auth = getAuthFromRequest(request);
     if (!auth.customerId) {
       console.log('No customer ID found in auth');
@@ -22,27 +34,19 @@ export async function GET(request: NextRequest) {
     }
     console.log('Auth validated, customer ID:', auth.customerId);
 
+    // Connect to database with timeout
     console.log('Connecting to database...');
-    await connectDB();
+    await withTimeout(connectDB(), TIMEOUT);
     console.log('Connected to database. Connection state:', mongoose.connection.readyState);
     
-    // First sync with CRMs
-    console.log('Syncing contacts with CRMs...');
-    await syncAllContacts(auth);
-    console.log('Sync complete');
-    
-    // Now get all contacts including the newly synced ones
+    // Get contacts without syncing first
     console.log('Fetching all contacts...');
-    const allContacts = await Contact.aggregate([
-      // Match contacts for this customer
+    const allContacts = await withTimeout(Contact.aggregate([
       { $match: { customerId: auth.customerId } },
-      // Unwind the sources array to handle each source separately
       { $unwind: '$sources' },
-      // Group by email (case-insensitive)
       {
         $group: {
           _id: { $toLower: '$email' },
-          // Keep the most recent document's fields
           doc: { 
             $first: {
               $cond: {
@@ -52,18 +56,13 @@ export async function GET(request: NextRequest) {
               }
             }
           },
-          // Collect all sources
           sources: { $addToSet: '$sources' },
-          // Keep track of all IDs
           hubspotIds: { $addToSet: '$hubspotId' },
           pipedriveIds: { $addToSet: '$pipedriveId' },
-          // Use earliest createdAt
           createdAt: { $min: '$createdAt' },
-          // Use latest updatedAt
           updatedAt: { $max: '$updatedAt' }
         }
       },
-      // Project the final document
       {
         $project: {
           _id: '$doc._id',
@@ -97,15 +96,28 @@ export async function GET(request: NextRequest) {
           updatedAt: 1
         }
       },
-      // Sort by createdAt descending
       { $sort: { createdAt: -1 } }
-    ]);
+    ]), TIMEOUT);
+    
+    // Try to sync in the background
+    try {
+      syncAllContacts(auth).catch(error => {
+        console.error('Background sync failed:', error);
+      });
+    } catch (error) {
+      console.error('Failed to start background sync:', error);
+    }
     
     console.log('Found contacts:', allContacts.length);
     return NextResponse.json({ contacts: allContacts }, { status: 200 });
   } catch (error) {
     console.error('Error in GET operation:', error);
-    console.error('Full error details:', JSON.stringify(error, null, 2));
+    if (error instanceof Error && error.message.includes('timed out')) {
+      return NextResponse.json(
+        { error: 'Request timeout', details: error.message },
+        { status: 504 }
+      );
+    }
     return NextResponse.json(
       { error: 'Internal Server Error', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
