@@ -10,7 +10,7 @@ const inter = Inter({
   subsets: ["latin"],
   display: 'swap',
   preload: true,
-  adjustFontFallback: true
+  variable: '--font-inter',
 })
 
 export const metadata: Metadata = {
@@ -27,16 +27,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="light">
-      <head>
-        <link
-          rel="preload"
-          href={inter.style.fontFamily}
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
-      </head>
+    <html lang="en" className={`light ${inter.variable}`}>
       <body className={inter.className}>
         <AuthProvider>
           <IntegrationProvider>
