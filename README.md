@@ -77,23 +77,19 @@ A modern contact management app with real-time two-way sync to HubSpot and Piped
 
 ---
 
-## Troubleshooting & Known Issues
+## Troubleshooting
 
-### Duplicate contacts on create/sync
-- There is a known issue where creating a contact from the app or from HubSpot may result in duplicate records in Pipedrive. This can cause sync issues until the duplicates are manually resolved.
-- If you encounter this, delete the duplicate contacts in Pipedrive and re-sync.
-- We are actively working on a more robust deduplication and sync strategy.
+- **Deleting contacts:**
+  - To ensure proper sync, always delete contacts from the application. Deleting a contact from one of the CRMs (HubSpot or Pipedrive) will not propagate the deletion, and the contact will be re-created on the next sync. The application is the source of truth for deletions.
+- **Contacts not syncing:**
+  - Make sure you have set up the Integration.app console with both CRMs and all 4 actions for each.
+  - Ensure your MongoDB Atlas cluster allows access from Vercel (add `0.0.0.0/0` to IP Access List for testing).
+  - Check Vercel function logs for errors in `/api/contacts` or `/api/sync`.
+  - If you need to reset your data, you can clear your MongoDB collection and re-sync.
 
-### Contacts not syncing or ghost contacts?
-- Make sure you have set up the Integration.app console with both CRMs and all 4 actions for each.
-- Ensure your MongoDB Atlas cluster allows access from Vercel (add `0.0.0.0/0` to IP Access List for testing).
-- If you see contacts re-appearing after deletion, check that deletions are being propagated to all systems and that your sync logic is not re-creating deleted contacts from CRM data.
-- Check Vercel function logs for errors in `/api/contacts` or `/api/sync`.
-- If you need to reset your data, you can clear your MongoDB collection and re-sync.
-
-### More help
-- See the [Integration.app docs](http://console.integration.app/docs) for details on configuring apps and actions.
-- For issues, open an issue on GitHub or contact the maintainer.
+- **More help:**
+  - See the [Integration.app docs](http://console.integration.app/docs) for details on configuring apps and actions.
+  - For issues, open an issue on GitHub or contact the maintainer.
 
 ---
 
