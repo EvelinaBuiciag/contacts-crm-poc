@@ -7,26 +7,29 @@ This document details the technical approach, architecture, and key decisions be
 
 ## 1. Integration Journey & Developer Notes
 
-### Initial Setup & First Bottleneck – Auth Debugging
-- Added Pipedrive and HubSpot as external CRMs and tested all actions individually.
-- Attempted to register the app as an external app and build a connector.
-- **Blocker:** JWT Bearer token auth was problematic; reverted to using a static x-auth-id header for testing.
-- Used:
-  ```env
-  DEV_CUSTOMER_ID=f4ec5e01-b864-43e7-a461-bab1ec2dace2
-  ```
-  ```ts
-  export function getAuthFromRequest(req) {
-    return { customerId: process.env.DEV_CUSTOMER_ID }
-  }
-  ```
+- **First Approach: External App & Connector**
+  - **Blocker A:** Contacts weren't saving in the DB.
+    - **Solution:** Added a static ID in `.env` or a config file: `DEV_CUSTOMER_ID=f4ec5e01-b864-43e7-a461-bab1ec2dace2`.
+    - Modified `getAuthFromRequest` in dev mode to read that value instead of generating a new one:
+      ```javascript
+      export function getAuthFromRequest(req) {
+        return { customerId: process.env.TEST_CUSTOMER_ID }
+      }
+      ```
+    - Hardcoded the header to show users created by other customer IDs as the customer ID changes always.
+  - **Blocker B:** JWT Bearer token auth was problematic; reverted to using a static `x-auth-id` header for testing.
 
-### Documentation Gaps & Swagger Fallback
-- Integration.app docs only covered List operation; no guidance for create, update, or delete.
-- Attempted to use Swagger spec and ngrok to expose local server, but connector did not work due to unclear payloads and missing validations.
+- **Second Approach: Data Collection Operations**
+  - Tried creating operations on the data collection for the connector.
+  - **Issue:** Documentation at [Integration.app Connector Builder](https://console.integration.app/docs/connector-builder/data/operations/list) only covers the `list` operation.
 
-### Scenario-Based Flow (Abandoned)
-- Tried scenario builder in the console, but it generated duplicate collections/fields and incomplete mappings, leading to errors and a cluttered workspace.
+- **Third Approach: Swagger Integration**
+  - Attempted to add Swagger, but faced complications.
+  - **Issue:** Required `console.integration.app` to communicate with localhost, necessitating the use of ngrok, which added complexity.
+
+- **Fourth Approach: Scenarios**
+  - Encountered issues with scenarios, leading to the current architecture.
+  - **Issue:** Creating scenarios in `console.integration.app` prematurely creates data sources, fields mappings, etc., leading to duplications and errors.
 
 ### Final Working POC (Current Strategy)
 - **Used only the CRM actions** (list, create, update, delete) for both HubSpot and Pipedrive.
