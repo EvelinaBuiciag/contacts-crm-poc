@@ -115,19 +115,14 @@ export async function POST(request: NextRequest) {
     await connectDB();
     console.log('Connected to database');
 
-    // Check if contact already exists (by email)
-    console.log('Checking for existing contact with email:', email);
-    let contact = await Contact.findOne({
-      customerId: auth.customerId,
-      email: { $regex: new RegExp(`^${email}$`, 'i') }
-    });
-    console.log('Existing contact found:', contact ? 'yes' : 'no');
+    // Check for existing contact by email before creating
+    let contact = await Contact.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') }, customerId: auth.customerId });
 
     const integrationClient = await getIntegrationClient(auth);
 
     if (contact) {
       // Update existing contact
-      console.log('Updating existing contact');
+      console.log('Updating existing contact (matched by email)');
       const updates = {
         name,
         phone,
@@ -154,18 +149,18 @@ export async function POST(request: NextRequest) {
       );
       console.log('Contact updated:', contact);
     } else {
-    // Create new contact
+      // Create new contact
       console.log('Creating new contact');
       contact = await Contact.create({
-      id: crypto.randomUUID(),
-      name,
-      email,
-      phone,
-      jobTitle,
-      pronouns,
-      customerId: auth.customerId,
+        id: crypto.randomUUID(),
+        name,
+        email,
+        phone,
+        jobTitle,
+        pronouns,
+        customerId: auth.customerId,
         sources: ['local']
-    });
+      });
       console.log('New contact created:', contact);
 
       // Sync with CRMs

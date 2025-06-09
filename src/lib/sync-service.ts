@@ -263,6 +263,16 @@ export async function syncAllContacts(auth: AuthCustomer) {
             );
           }
         } else {
+          // Only create if not deleted locally (prevent ghost contacts)
+          const deletedLocally = await ContactModel.findOne({
+            customerId: auth.customerId,
+            email: { $regex: new RegExp(`^${email}$`, 'i') },
+            deleted: true
+          });
+          if (deletedLocally) {
+            console.log('Contact was deleted locally, skipping creation:', email);
+            continue;
+          }
           console.log('Creating new contact from Hubspot data');
           // Create new contact from Hubspot
           const newContact = await ContactModel.create({
@@ -401,6 +411,16 @@ export async function syncAllContacts(auth: AuthCustomer) {
             );
           }
         } else {
+          // Only create if not deleted locally (prevent ghost contacts)
+          const deletedLocally = await ContactModel.findOne({
+            customerId: auth.customerId,
+            email: { $regex: new RegExp(`^${email}$`, 'i') },
+            deleted: true
+          });
+          if (deletedLocally) {
+            console.log('Contact was deleted locally, skipping creation:', email);
+            continue;
+          }
           console.log('Creating new contact from Pipedrive data');
           // Create new contact from Pipedrive
           const newContact = await ContactModel.create({
