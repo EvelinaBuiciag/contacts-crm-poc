@@ -86,10 +86,31 @@ A modern contact management app with real-time two-way sync to HubSpot and Piped
   - Ensure your MongoDB Atlas cluster allows access from Vercel (add `0.0.0.0/0` to IP Access List for testing).
   - Check Vercel function logs for errors in `/api/contacts` or `/api/sync`.
   - If you need to reset your data, you can clear your MongoDB collection and re-sync.
+- **Sync timing and update delays:**
+  - Due to limitations in CRM APIs and the sync approach, even after waiting, updates or deletions may not always be reflected correctly in all systems. There is a risk of duplicates or multiple contacts, especially in Pipedrive, if changes are made in quick succession or if the CRMs are slow to update. This is a limitation of the current sync logic and external CRM APIs, not just a timing issue.
 
 - **More help:**
   - See the [Integration.app docs](http://console.integration.app/docs) for details on configuring apps and actions.
   - For issues, open an issue on GitHub or contact the maintainer.
+
+---
+
+## Known Issues & Limitations
+
+- **Duplicates and Missed Updates/Deletes:**
+  - There is a risk of duplicate contacts or missed updates/deletes, especially in Pipedrive, even after waiting for sync cycles. This can occur if:
+    - A contact is updated or deleted in the app, but the CRM is slow to reflect the change, so the sync re-imports or duplicates the contact.
+    - Multiple changes are made in quick succession across systems, and the sync picks up stale or inconsistent data from the CRMs.
+  - **Root Causes:**
+    - Eventual consistency and propagation delays in CRM APIs (HubSpot, Pipedrive).
+    - Lack of atomic, cross-system transactions—each system is updated independently.
+    - No global locking or versioning across all systems.
+  - **Example Scenario:**
+    - You delete/update a contact in the app, but Pipedrive/Hubspot is slow to process the deletion. The next sync cycle sees the contact still in Pipedrive/Hubspot and re-imports it, creating a duplicate or "ghost" contact.
+  - **Workarounds:**
+    - Always use the app for destructive actions (deletes/updates) and avoid making rapid changes in multiple systems.
+    - If duplicates occur, manually clean up in the CRMs and re-sync.
+    - For critical use cases, consider implementing a more advanced sync protocol with versioning or conflict resolution.
 
 ---
 

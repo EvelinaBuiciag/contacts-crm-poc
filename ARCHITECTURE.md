@@ -85,6 +85,10 @@ flowchart TD
 - **On Sync:**
   - Always merge/update by email.
   - Never create a new local contact if one with the same email is marked as deleted.
+- **Sync Timing:**
+  - Due to the 30-second sync interval and network timing, there may be a short delay before updates or deletions are reflected in all CRMs. Temporary inconsistencies may occur if changes are made in rapid succession. Use the manual "Sync Now" button or wait for the next cycle if needed.
+- **Limitation:**
+  - Even after waiting, due to CRM API and sync limitations, updates or deletions may not always be reflected correctly in all systems. There is a risk of duplicates or multiple contacts, especially in Pipedrive, if changes are made in quick succession or if the CRMs are slow to update. This is a limitation of the current sync logic and external CRM APIs, not just a timing issue.
 
 ---
 
@@ -102,6 +106,25 @@ flowchart TD
 - To add more CRMs, define the same 4 actions and extend the sync logic.
 - To support hard deletes, add a purge endpoint to remove `deleted: true` contacts.
 - To improve deduplication, consider supporting secondary keys (e.g., phone number).
+
+---
+
+## Known Issues & Limitations
+
+- **Duplicates and Missed Updates/Deletes:**
+  - There is a risk of duplicate contacts or missed updates/deletes, especially in Pipedrive, even after waiting for sync cycles. This can occur if:
+    - A contact is updated or deleted in the app, but the CRM is slow to reflect the change, so the sync re-imports or duplicates the contact.
+    - Multiple changes are made in quick succession across systems, and the sync picks up stale or inconsistent data from the CRMs.
+  - **Root Causes:**
+    - Eventual consistency and propagation delays in CRM APIs (HubSpot, Pipedrive).
+    - Lack of atomic, cross-system transactions—each system is updated independently.
+    - No global locking or versioning across all systems.
+  - **Example Scenario:**
+    - You delete/update a contact in the app, but Pipedrive/Hubspot is slow to process the deletion. The next sync cycle sees the contact still in Pipedrive/Hubspot and re-imports it, creating a duplicate or "ghost" contact.
+  - **Workarounds:**
+    - Always use the app for destructive actions (deletes/updates) and avoid making rapid changes in multiple systems.
+    - If duplicates occur, manually clean up in the CRMs and re-sync.
+    - For critical use cases, consider implementing a more advanced sync protocol with versioning or conflict resolution.
 
 ---
 
