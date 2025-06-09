@@ -181,7 +181,8 @@ export async function syncAllContacts(auth: AuthCustomer) {
 
     // Fetch local contacts to track existing records
     const localContacts = await ContactModel.find({ customerId: auth.customerId });
-    const localEmails = new Set(localContacts.map(c => c.email.toLowerCase()));
+    const localEmails = new Set(localContacts.filter(c => !c.deleted).map(c => c.email.toLowerCase()));
+    const deletedEmails = new Set(localContacts.filter(c => c.deleted).map(c => c.email.toLowerCase()));
 
     // Fetch contacts from Hubspot
     try {
@@ -211,7 +212,8 @@ export async function syncAllContacts(auth: AuthCustomer) {
 
         const existingContact = await ContactModel.findOne({
           customerId: auth.customerId,
-          email: { $regex: new RegExp(`^${email}$`, 'i') }
+          email: { $regex: new RegExp(`^${email}$`, 'i') },
+          deleted: { $ne: true }
         });
 
         if (existingContact) {
@@ -264,12 +266,7 @@ export async function syncAllContacts(auth: AuthCustomer) {
           }
         } else {
           // Only create if not deleted locally (prevent ghost contacts)
-          const deletedLocally = await ContactModel.findOne({
-            customerId: auth.customerId,
-            email: { $regex: new RegExp(`^${email}$`, 'i') },
-            deleted: true
-          });
-          if (deletedLocally) {
+          if (deletedEmails.has(email.toLowerCase())) {
             console.log('Contact was deleted locally, skipping creation:', email);
             continue;
           }
@@ -359,7 +356,8 @@ export async function syncAllContacts(auth: AuthCustomer) {
 
         const existingContact = await ContactModel.findOne({
           customerId: auth.customerId,
-          email: { $regex: new RegExp(`^${email}$`, 'i') }
+          email: { $regex: new RegExp(`^${email}$`, 'i') },
+          deleted: { $ne: true }
         });
 
         if (existingContact) {
@@ -412,12 +410,7 @@ export async function syncAllContacts(auth: AuthCustomer) {
           }
         } else {
           // Only create if not deleted locally (prevent ghost contacts)
-          const deletedLocally = await ContactModel.findOne({
-            customerId: auth.customerId,
-            email: { $regex: new RegExp(`^${email}$`, 'i') },
-            deleted: true
-          });
-          if (deletedLocally) {
+          if (deletedEmails.has(email.toLowerCase())) {
             console.log('Contact was deleted locally, skipping creation:', email);
             continue;
           }

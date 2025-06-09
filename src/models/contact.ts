@@ -13,6 +13,7 @@ export interface IContact extends Document {
   sources: Array<'local' | 'hubspot' | 'pipedrive'>;
   createdAt: Date;
   updatedAt: Date;
+  deleted: boolean;
 }
 
 // Delete existing model if it exists to force schema update
@@ -89,6 +90,11 @@ const contactSchema = new mongoose.Schema<IContact>(
         },
         message: 'At least one valid source is required'
       }
+    },
+    deleted: {
+      type: Boolean,
+      default: false,
+      index: true
     },
   },
   {

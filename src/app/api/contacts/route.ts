@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     // Get contacts without syncing first
     console.log('Fetching all contacts...');
     const allContacts = await withTimeout(Contact.find(
-      { customerId: auth.customerId },
+      { customerId: auth.customerId, deleted: { $ne: true } },
       {
         id: 1,
         name: 1,

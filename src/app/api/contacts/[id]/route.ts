@@ -42,10 +42,10 @@ export async function DELETE(
       // Continue with local deletion even if CRM deletion fails
     }
 
-    // Delete from local database
-    console.log('Attempting to delete from local database');
-    await Contact.findByIdAndDelete(contact._id);
-    console.log('Successfully deleted from local database');
+    // Mark as deleted in local database
+    console.log('Marking contact as deleted in local database');
+    await Contact.findByIdAndUpdate(contact._id, { deleted: true });
+    console.log('Successfully marked as deleted in local database');
 
     return NextResponse.json({ success: true });
   } catch (error) {
