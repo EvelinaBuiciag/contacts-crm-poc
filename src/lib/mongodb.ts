@@ -29,22 +29,22 @@ async function connectDB(): Promise<typeof mongoose> {
     console.log('Starting MongoDB connection...');
     console.log('Current connection state:', mongoose.connection.readyState);
     
-    if (cached.conn) {
+  if (cached.conn) {
       // Check if the connection is still alive
       if (mongoose.connection.readyState === 1) {
         console.log('Using cached database connection');
-        return cached.conn;
+    return cached.conn;
       }
       console.log('Cached connection is not active, creating new connection');
       // Reset cache if connection is not active
       cached.conn = null;
       cached.promise = null;
-    }
+  }
 
-    if (!cached.promise) {
+  if (!cached.promise) {
       console.log('Creating new database connection...');
-      const opts = {
-        bufferCommands: false,
+    const opts = {
+      bufferCommands: false,
         serverSelectionTimeoutMS: 10000, // Timeout after 10 seconds
         socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
         family: 4, // Use IPv4, skip trying IPv6
@@ -97,13 +97,13 @@ async function connectDB(): Promise<typeof mongoose> {
         cached.promise = null;
         throw error;
       });
-    }
+  }
 
-    try {
-      cached.conn = await cached.promise;
+  try {
+    cached.conn = await cached.promise;
       return cached.conn;
-    } catch (e) {
-      cached.promise = null;
+  } catch (e) {
+    cached.promise = null;
       console.error('Error establishing database connection:', e);
       if (e instanceof Error) {
         console.error('Error details:', {
@@ -112,8 +112,8 @@ async function connectDB(): Promise<typeof mongoose> {
           stack: e.stack
         });
       }
-      throw e;
-    }
+    throw e;
+  }
   } catch (error) {
     console.error('Top level error in connectDB:', error);
     if (error instanceof Error) {

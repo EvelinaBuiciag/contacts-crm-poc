@@ -1,23 +1,15 @@
 import useSWR from 'swr';
-import { ContactsResponse, Contact } from '@/types/contact';
-import { authenticatedFetcher, getAuthHeaders } from '@/lib/fetch-utils';
+import { Contact } from '@/types/contact';
+import { getContacts } from '@/lib/api';
 
 export function useContacts() {
-  const { data, error, isLoading, mutate } = useSWR<ContactsResponse>(
-    '/api/contacts',
-    (url) => authenticatedFetcher<ContactsResponse>(url),
-    {
-      revalidateOnFocus: true,
-      revalidateOnReconnect: true,
-    }
-  );
+  const { data, error, isLoading, mutate } = useSWR<Contact[]>('/api/contacts', getContacts);
 
   const createContact = async (contact: Omit<Contact, 'id' | 'createdAt' | 'updatedAt' | 'sources'>) => {
     try {
       const response = await fetch('/api/contacts', {
         method: 'POST',
         headers: {
-          ...getAuthHeaders(),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(contact),
@@ -42,7 +34,6 @@ export function useContacts() {
       const response = await fetch('/api/contacts', {
         method: 'PUT',
         headers: {
-          ...getAuthHeaders(),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(contact),
@@ -62,11 +53,10 @@ export function useContacts() {
     }
   };
 
-  const deleteContact = async (email: string) => {
+  const deleteContact = async (id: string) => {
     try {
-      const response = await fetch(`/api/contacts?email=${encodeURIComponent(email)}`, {
+      const response = await fetch(`/api/contacts/${id}`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -84,7 +74,7 @@ export function useContacts() {
   };
 
   return {
-    contacts: data?.contacts ?? [],
+    contacts: data ?? [],
     isLoading,
     isError: error,
     mutate,

@@ -21,29 +21,55 @@ export async function syncContact(
   const updates: any = {};
   let sources = existingContact?.sources || ['local'];
 
+  // Ensure email is provided and valid
+  if (!contact.email) {
+    console.error('No email provided for contact sync');
+    return updates;
+  }
+
   // Try Hubspot sync
   try {
     console.log('Checking Hubspot integration for:', contact.email);
     // If contact doesn't exist in Hubspot yet
     if (!existingContact?.hubspotId) {
-      // Create new contact in Hubspot
-      console.log('Creating new Hubspot contact');
-      const hubspotResponse = await integrationClient
+      // Check if contact already exists in Hubspot to prevent duplicates
+      const hubspotCheck = await integrationClient
         .connection('hubspot')
-        .action('create-contact')
+        .action('list-contacts')
         .run({
-          name: contact.name,
-          email: contact.email,
-          phone: contact.phone,
-          jobTitle: contact.jobTitle,
-          pronouns: contact.pronouns
+          filter: { email: contact.email }
         });
-
-      console.log('Hubspot create response:', JSON.stringify(hubspotResponse?.output, null, 2));
-      if (hubspotResponse?.output?.id) {
-        updates.hubspotId = hubspotResponse.output.id;
+      const existingHubspotContact = hubspotCheck?.output?.records?.find(
+        (c: any) => c.fields?.primaryEmail?.toLowerCase() === contact.email.toLowerCase()
+      );
+      if (existingHubspotContact) {
+        console.log('Contact already exists in Hubspot, updating ID');
+        updates.hubspotId = existingHubspotContact.id;
         if (!sources.includes('hubspot')) {
           sources = [...sources, 'hubspot'];
+        }
+      } else {
+        // Create new contact in Hubspot
+        console.log('Creating new Hubspot contact');
+        const hubspotResponse = await integrationClient
+          .connection('hubspot')
+          .action('create-contact')
+          .run({
+            name: contact.name,
+            email: contact.email,
+            phone: contact.phone,
+            jobTitle: contact.jobTitle || '',
+            pronouns: contact.pronouns || ''
+          });
+
+        console.log('Hubspot create response:', JSON.stringify(hubspotResponse?.output, null, 2));
+        if (hubspotResponse?.output?.id) {
+          updates.hubspotId = hubspotResponse.output.id;
+          if (!sources.includes('hubspot')) {
+            sources = [...sources, 'hubspot'];
+          }
+        } else {
+          console.error('Failed to create contact in Hubspot, no ID returned');
         }
       }
     } else {
@@ -57,8 +83,8 @@ export async function syncContact(
           name: contact.name,
           email: contact.email,
           phone: contact.phone,
-          jobTitle: contact.jobTitle,
-          pronouns: contact.pronouns
+          jobTitle: contact.jobTitle || '',
+          pronouns: contact.pronouns || ''
         });
     }
   } catch (error) {
@@ -77,24 +103,44 @@ export async function syncContact(
     console.log('Checking Pipedrive integration for:', contact.email);
     // If contact doesn't exist in Pipedrive yet
     if (!existingContact?.pipedriveId) {
-      // Create new contact in Pipedrive
-      console.log('Creating new Pipedrive contact');
-      const pipedriveResponse = await integrationClient
+      // Check if contact already exists in Pipedrive to prevent duplicates
+      const pipedriveCheck = await integrationClient
         .connection('pipedrive')
-        .action('create-contact')
+        .action('list-contacts')
         .run({
-          name: contact.name,
-          email: contact.email,
-          phone: contact.phone,
-          jobTitle: contact.jobTitle,
-          pronouns: contact.pronouns
+          filter: { email: contact.email }
         });
-
-      console.log('Pipedrive create response:', JSON.stringify(pipedriveResponse?.output, null, 2));
-      if (pipedriveResponse?.output?.id) {
-        updates.pipedriveId = pipedriveResponse.output.id;
+      const existingPipedriveContact = pipedriveCheck?.output?.records?.find(
+        (c: any) => c.fields?.primaryEmail?.toLowerCase() === contact.email.toLowerCase()
+      );
+      if (existingPipedriveContact) {
+        console.log('Contact already exists in Pipedrive, updating ID');
+        updates.pipedriveId = existingPipedriveContact.id;
         if (!sources.includes('pipedrive')) {
           sources = [...sources, 'pipedrive'];
+        }
+      } else {
+        // Create new contact in Pipedrive
+        console.log('Creating new Pipedrive contact');
+        const pipedriveResponse = await integrationClient
+          .connection('pipedrive')
+          .action('create-contact')
+          .run({
+            name: contact.name,
+            email: contact.email,
+            phone: contact.phone,
+            jobTitle: contact.jobTitle || '',
+            pronouns: contact.pronouns || ''
+          });
+
+        console.log('Pipedrive create response:', JSON.stringify(pipedriveResponse?.output, null, 2));
+        if (pipedriveResponse?.output?.id) {
+          updates.pipedriveId = pipedriveResponse.output.id;
+          if (!sources.includes('pipedrive')) {
+            sources = [...sources, 'pipedrive'];
+          }
+        } else {
+          console.error('Failed to create contact in Pipedrive, no ID returned');
         }
       }
     } else {
@@ -108,8 +154,8 @@ export async function syncContact(
           name: contact.name,
           email: contact.email,
           phone: contact.phone,
-          jobTitle: contact.jobTitle,
-          pronouns: contact.pronouns
+          jobTitle: contact.jobTitle || '',
+          pronouns: contact.pronouns || ''
         });
     }
   } catch (error) {
@@ -123,27 +169,27 @@ export async function syncContact(
     }
   }
 
-  if (Object.keys(updates).length > 0) {
-    updates.sources = sources;
-  }
-
-  console.log('Sync complete. Updates:', updates);
+  updates.sources = sources;
   return updates;
 }
 
 export async function syncAllContacts(auth: AuthCustomer) {
   try {
-    console.log('Starting syncAllContacts for customer:', auth.customerId);
+    console.log('Starting contact sync for customer:', auth.customerId);
     const integrationClient = await getIntegrationClient(auth);
     console.log('Integration client initialized');
-    
+
+    // Fetch local contacts to track existing records
+    const localContacts = await ContactModel.find({ customerId: auth.customerId });
+    const localEmails = new Set(localContacts.map(c => c.email.toLowerCase()));
+
     // Fetch contacts from Hubspot
     try {
       console.log('Attempting to fetch contacts from Hubspot...');
       const hubspotResponse = await integrationClient
         .connection('hubspot')
         .action('list-contacts')
-        .run();
+        .run('{}'); // Ensure we fetch all contacts without filters
 
       console.log('Raw Hubspot response:', JSON.stringify(hubspotResponse, null, 2));
       const hubspotContacts = hubspotResponse?.output?.records || [];
@@ -157,9 +203,15 @@ export async function syncAllContacts(auth: AuthCustomer) {
           name: hubspotContact.name
         });
         
+        const email = hubspotContact.fields?.primaryEmail || '';
+        if (!email) {
+          console.log('Skipping Hubspot contact with no email:', hubspotContact.id);
+          continue;
+        }
+
         const existingContact = await ContactModel.findOne({
           customerId: auth.customerId,
-          email: { $regex: new RegExp(`^${hubspotContact.fields?.primaryEmail}$`, 'i') }
+          email: { $regex: new RegExp(`^${email}$`, 'i') }
         });
 
         if (existingContact) {
@@ -168,18 +220,32 @@ export async function syncAllContacts(auth: AuthCustomer) {
             email: existingContact.email,
             sources: existingContact.sources
           });
-          // Update existing contact with Hubspot data
-          const sources = new Set([...existingContact.sources, 'hubspot', 'local']);
-          await ContactModel.findByIdAndUpdate(existingContact._id, {
-            hubspotId: hubspotContact.id,
-            sources: Array.from(sources),
-            // Always update fields from Hubspot to keep in sync
-            name: hubspotContact.name,
-            phone: hubspotContact.fields?.primaryPhone || existingContact.phone,
-            jobTitle: hubspotContact.fields?.jobTitle || existingContact.jobTitle,
-            pronouns: hubspotContact.fields?.pronouns || existingContact.pronouns
-          });
-          console.log('Updated existing contact with Hubspot info');
+          // Always update Hubspot ID if different
+          if (existingContact.hubspotId !== hubspotContact.id) {
+            console.log('Updating Hubspot ID for existing contact');
+            const sources = new Set([...existingContact.sources, 'hubspot', 'local']);
+            await ContactModel.findByIdAndUpdate(existingContact._id, {
+              hubspotId: hubspotContact.id,
+              sources: Array.from(sources)
+            });
+          }
+          // Update existing contact with Hubspot data only if Hubspot's update is newer
+          const hubspotUpdatedAt = new Date(hubspotContact.updatedTime || hubspotContact.updatedAt || 0);
+          const localUpdatedAt = new Date(existingContact.updatedAt || 0);
+          if (hubspotUpdatedAt > localUpdatedAt) {
+            console.log('Hubspot data is newer, updating local contact');
+            const sources = new Set([...existingContact.sources, 'hubspot', 'local']);
+            await ContactModel.findByIdAndUpdate(existingContact._id, {
+              hubspotId: hubspotContact.id,
+              sources: Array.from(sources),
+              name: hubspotContact.name,
+              phone: hubspotContact.fields?.primaryPhone || existingContact.phone,
+              jobTitle: hubspotContact.fields?.jobTitle || existingContact.jobTitle,
+              pronouns: hubspotContact.fields?.pronouns || existingContact.pronouns,
+              updatedAt: hubspotUpdatedAt
+            });
+            console.log('Updated existing contact with Hubspot info');
+          }
 
           // If contact isn't in Pipedrive, sync it
           if (!existingContact.pipedriveId) {
@@ -188,7 +254,7 @@ export async function syncAllContacts(auth: AuthCustomer) {
               integrationClient,
               {
                 name: hubspotContact.name,
-                email: hubspotContact.fields?.primaryEmail || '',
+                email: email,
                 phone: hubspotContact.fields?.primaryPhone || '(No phone)',
                 jobTitle: hubspotContact.fields?.jobTitle || '',
                 pronouns: hubspotContact.fields?.pronouns || ''
@@ -203,7 +269,7 @@ export async function syncAllContacts(auth: AuthCustomer) {
             id: crypto.randomUUID(),
             customerId: auth.customerId,
             name: hubspotContact.name,
-            email: hubspotContact.fields?.primaryEmail || '',
+            email: email,
             phone: hubspotContact.fields?.primaryPhone || '(No phone)',
             jobTitle: hubspotContact.fields?.jobTitle || '',
             pronouns: hubspotContact.fields?.pronouns || '',
@@ -217,13 +283,32 @@ export async function syncAllContacts(auth: AuthCustomer) {
             integrationClient,
             {
               name: hubspotContact.name,
-              email: hubspotContact.fields?.primaryEmail || '',
+              email: email,
               phone: hubspotContact.fields?.primaryPhone || '(No phone)',
               jobTitle: hubspotContact.fields?.jobTitle || '',
               pronouns: hubspotContact.fields?.pronouns || ''
             },
             newContact
           );
+        }
+      }
+
+      // Check for deleted contacts in Hubspot
+      const hubspotContactIds = hubspotContacts.map((contact: any) => contact.id);
+      const localContactsWithHubspot = await ContactModel.find({
+        customerId: auth.customerId,
+        hubspotId: { $exists: true, $ne: null }
+      });
+      for (const localContact of localContactsWithHubspot) {
+        if (!hubspotContactIds.includes(localContact.hubspotId || '')) {
+          console.log('Contact deleted from Hubspot, removing Hubspot reference locally:', localContact.email);
+          const sources = localContact.sources.filter(source => source !== 'hubspot');
+          await ContactModel.findByIdAndUpdate(localContact._id, {
+            hubspotId: null,
+            sources: sources.length > 0 ? sources : ['local']
+          });
+          console.log('Removed Hubspot reference for contact:', localContact.email);
+          // Do not delete local contact to preserve data in other systems
         }
       }
     } catch (error) {
@@ -242,7 +327,7 @@ export async function syncAllContacts(auth: AuthCustomer) {
       const pipedriveResponse = await integrationClient
         .connection('pipedrive')
         .action('list-contacts')
-        .run();
+        .run('{}'); // Ensure we fetch all contacts without filters
 
       console.log('Raw Pipedrive response:', JSON.stringify(pipedriveResponse, null, 2));
       const pipedriveContacts = pipedriveResponse?.output?.records || [];
@@ -256,9 +341,15 @@ export async function syncAllContacts(auth: AuthCustomer) {
           name: pipedriveContact.name
         });
         
+        const email = pipedriveContact.fields?.primaryEmail || '';
+        if (!email) {
+          console.log('Skipping Pipedrive contact with no email:', pipedriveContact.id);
+          continue;
+        }
+
         const existingContact = await ContactModel.findOne({
           customerId: auth.customerId,
-          email: { $regex: new RegExp(`^${pipedriveContact.fields?.primaryEmail}$`, 'i') }
+          email: { $regex: new RegExp(`^${email}$`, 'i') }
         });
 
         if (existingContact) {
@@ -267,18 +358,32 @@ export async function syncAllContacts(auth: AuthCustomer) {
             email: existingContact.email,
             sources: existingContact.sources
           });
-          // Update existing contact with Pipedrive data
-          const sources = new Set([...existingContact.sources, 'pipedrive', 'local']);
-          await ContactModel.findByIdAndUpdate(existingContact._id, {
-            pipedriveId: pipedriveContact.id,
-            sources: Array.from(sources),
-            // Always update fields from Pipedrive to keep in sync
-            name: pipedriveContact.name,
-            phone: pipedriveContact.fields?.primaryPhone || existingContact.phone,
-            jobTitle: pipedriveContact.fields?.jobTitle || existingContact.jobTitle,
-            pronouns: pipedriveContact.fields?.pronouns || existingContact.pronouns
-          });
-          console.log('Updated existing contact with Pipedrive info');
+          // Always update Pipedrive ID if different
+          if (existingContact.pipedriveId !== pipedriveContact.id) {
+            console.log('Updating Pipedrive ID for existing contact');
+            const sources = new Set([...existingContact.sources, 'pipedrive', 'local']);
+            await ContactModel.findByIdAndUpdate(existingContact._id, {
+              pipedriveId: pipedriveContact.id,
+              sources: Array.from(sources)
+            });
+          }
+          // Update existing contact with Pipedrive data only if Pipedrive's update is newer
+          const pipedriveUpdatedAt = new Date(pipedriveContact.updatedTime || pipedriveContact.updatedAt || 0);
+          const localUpdatedAt = new Date(existingContact.updatedAt || 0);
+          if (pipedriveUpdatedAt > localUpdatedAt) {
+            console.log('Pipedrive data is newer, updating local contact');
+            const sources = new Set([...existingContact.sources, 'pipedrive', 'local']);
+            await ContactModel.findByIdAndUpdate(existingContact._id, {
+              pipedriveId: pipedriveContact.id,
+              sources: Array.from(sources),
+              name: pipedriveContact.name,
+              phone: pipedriveContact.fields?.primaryPhone || existingContact.phone,
+              jobTitle: pipedriveContact.fields?.jobTitle || existingContact.jobTitle,
+              pronouns: pipedriveContact.fields?.pronouns || existingContact.pronouns,
+              updatedAt: pipedriveUpdatedAt
+            });
+            console.log('Updated existing contact with Pipedrive info');
+          }
 
           // If contact isn't in Hubspot, sync it
           if (!existingContact.hubspotId) {
@@ -287,7 +392,7 @@ export async function syncAllContacts(auth: AuthCustomer) {
               integrationClient,
               {
                 name: pipedriveContact.name,
-                email: pipedriveContact.fields?.primaryEmail || '',
+                email: email,
                 phone: pipedriveContact.fields?.primaryPhone || '(No phone)',
                 jobTitle: pipedriveContact.fields?.jobTitle || '',
                 pronouns: pipedriveContact.fields?.pronouns || ''
@@ -302,7 +407,7 @@ export async function syncAllContacts(auth: AuthCustomer) {
             id: crypto.randomUUID(),
             customerId: auth.customerId,
             name: pipedriveContact.name,
-            email: pipedriveContact.fields?.primaryEmail || '',
+            email: email,
             phone: pipedriveContact.fields?.primaryPhone || '(No phone)',
             jobTitle: pipedriveContact.fields?.jobTitle || '',
             pronouns: pipedriveContact.fields?.pronouns || '',
@@ -316,13 +421,32 @@ export async function syncAllContacts(auth: AuthCustomer) {
             integrationClient,
             {
               name: pipedriveContact.name,
-              email: pipedriveContact.fields?.primaryEmail || '',
+              email: email,
               phone: pipedriveContact.fields?.primaryPhone || '(No phone)',
               jobTitle: pipedriveContact.fields?.jobTitle || '',
               pronouns: pipedriveContact.fields?.pronouns || ''
             },
             newContact
           );
+        }
+      }
+
+      // Check for deleted contacts in Pipedrive
+      const pipedriveContactIds = pipedriveContacts.map((contact: any) => contact.id);
+      const localContactsWithPipedrive = await ContactModel.find({
+        customerId: auth.customerId,
+        pipedriveId: { $exists: true, $ne: null }
+      });
+      for (const localContact of localContactsWithPipedrive) {
+        if (!pipedriveContactIds.includes(localContact.pipedriveId || '')) {
+          console.log('Contact deleted from Pipedrive, removing Pipedrive reference locally:', localContact.email);
+          const sources = localContact.sources.filter(source => source !== 'pipedrive');
+          await ContactModel.findByIdAndUpdate(localContact._id, {
+            pipedriveId: null,
+            sources: sources.length > 0 ? sources : ['local']
+          });
+          console.log('Removed Pipedrive reference for contact:', localContact.email);
+          // Do not delete local contact to preserve data in other systems
         }
       }
     } catch (error) {
@@ -337,31 +461,40 @@ export async function syncAllContacts(auth: AuthCustomer) {
 
     // Sync local contacts to CRMs
     console.log('Syncing local contacts to CRMs...');
-    const localContacts = await ContactModel.find({
+    const updatedLocalContacts = await ContactModel.find({
       customerId: auth.customerId,
-      sources: 'local'
+      sources: { $in: ['local'] }
     });
 
-    for (const contact of localContacts) {
-      console.log('Syncing local contact:', contact);
+    for (const localContact of updatedLocalContacts) {
+      console.log('Syncing local contact to CRMs:', localContact.email);
       const updates = await syncContact(
         integrationClient,
         {
-          name: contact.name,
-          email: contact.email,
-          phone: contact.phone,
-          jobTitle: contact.jobTitle || '',
-          pronouns: contact.pronouns || ''
+          name: localContact.name,
+          email: localContact.email,
+          phone: localContact.phone,
+          jobTitle: localContact.jobTitle || '',
+          pronouns: localContact.pronouns || ''
         },
-        contact
+        localContact
       );
       if (Object.keys(updates).length > 0) {
-        await ContactModel.findByIdAndUpdate(contact._id, updates);
+        await ContactModel.findByIdAndUpdate(localContact._id, updates);
+        console.log('Updated local contact with CRM IDs:', localContact.email);
       }
     }
+
+    console.log('Contact sync completed for customer:', auth.customerId);
   } catch (error) {
-    console.error('Error in syncAllContacts:', error);
-    throw error;
+    console.error('Failed to sync contacts:', error);
+    if (error && typeof error === 'object') {
+      console.error('Error details:', {
+        message: 'message' in error ? error.message : 'Unknown error',
+        stack: 'stack' in error ? error.stack : undefined,
+        response: 'response' in error && error.response && typeof error.response === 'object' ? error.response : undefined
+      });
+    }
   }
 }
 
@@ -379,31 +512,54 @@ export async function deleteContactFromCrms(
     // Delete from Hubspot if contact exists there
     if (contact.sources?.includes('hubspot') && contact.hubspotId) {
       try {
-        await integrationClient
+        const response = await integrationClient
           .connection('hubspot')
           .action('delete-contact')
           .run({
             id: contact.hubspotId
           });
+        console.log('Successfully deleted contact from Hubspot:', contact.hubspotId, 'Response:', JSON.stringify(response, null, 2));
       } catch (error) {
         console.error('Failed to delete contact from Hubspot:', error);
+        if (error && typeof error === 'object') {
+          console.error('Error details:', {
+            message: 'message' in error ? error.message : 'Unknown error',
+            stack: 'stack' in error ? error.stack : undefined,
+            response: 'response' in error && error.response && typeof error.response === 'object' ? error.response : undefined
+          });
+        }
       }
     }
 
     // Delete from Pipedrive if contact exists there
     if (contact.sources?.includes('pipedrive') && contact.pipedriveId) {
       try {
-        await integrationClient
+        const response = await integrationClient
           .connection('pipedrive')
           .action('delete-contact')
           .run({
             id: contact.pipedriveId
           });
+        console.log('Successfully deleted contact from Pipedrive:', contact.pipedriveId, 'Response:', JSON.stringify(response, null, 2));
       } catch (error) {
         console.error('Failed to delete contact from Pipedrive:', error);
+        if (error && typeof error === 'object') {
+          console.error('Error details:', {
+            message: 'message' in error ? error.message : 'Unknown error',
+            stack: 'stack' in error ? error.stack : undefined,
+            response: 'response' in error && error.response && typeof error.response === 'object' ? error.response : undefined
+          });
+        }
       }
     }
   } catch (error) {
     console.error('Failed to delete contact from CRMs:', error);
+    if (error && typeof error === 'object') {
+      console.error('Error details:', {
+        message: 'message' in error ? error.message : 'Unknown error',
+        stack: 'stack' in error ? error.stack : undefined,
+        response: 'response' in error && error.response && typeof error.response === 'object' ? error.response : undefined
+      });
+    }
   }
 } 

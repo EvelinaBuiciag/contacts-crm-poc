@@ -4,84 +4,116 @@ import { ContactsTable } from "./components/contacts-table"
 import { useContacts } from "@/hooks/use-contacts"
 import { useState } from "react"
 import { ContactForm } from "./components/contact-form"
-import { Contact } from "@/types/contact"
+import { Contact, NewContact } from "@/types/contact"
 import { toast } from "sonner"
 import { useContactSync } from "@/hooks/use-contact-sync"
-
-type NewContact = Omit<Contact, 'id' | 'createdAt' | 'updatedAt'>
+import { getAuthHeaders } from '@/lib/fetch-utils'
 
 export default function ContactsPage() {
-  const { contacts, isLoading: isLoadingLocal, isError: isErrorLocal, createContact, updateContact, deleteContact } = useContacts()
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const { contacts, isLoading: isLoadingLocal, isError: isErrorLocal, createContact, updateContact, deleteContact, mutate } = useContacts()
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
 
   // Initialize contact sync
   useContactSync()
 
-  const handleCreate = async (contact: NewContact) => {
+  const handleCreate = async (newContact: NewContact) => {
     try {
-      setIsSubmitting(true)
-      await createContact(contact)
+      await createContact(newContact)
+      setIsFormOpen(false)
       toast.success('Contact created successfully')
     } catch (error) {
       console.error('Error creating contact:', error)
       toast.error('Failed to create contact')
-    } finally {
-      setIsSubmitting(false)
     }
   }
 
-  const handleUpdate = async (contact: Contact | NewContact) => {
+  const handleUpdate = async (updatedContact: Contact) => {
     try {
-      setIsSubmitting(true)
-      if ('id' in contact) {
-        await updateContact(contact as Contact)
-      } else {
-        await createContact(contact)
-      }
+      await updateContact(updatedContact)
+      setSelectedContact(null)
       toast.success('Contact updated successfully')
     } catch (error) {
       console.error('Error updating contact:', error)
       toast.error('Failed to update contact')
-    } finally {
-      setIsSubmitting(false)
     }
   }
 
-  const handleDelete = async (email: string) => {
+  const handleDelete = async (contact: Contact) => {
     try {
-      setIsSubmitting(true)
-      await deleteContact(email)
+      await deleteContact(contact.id)
       toast.success('Contact deleted successfully')
     } catch (error) {
       console.error('Error deleting contact:', error)
       toast.error('Failed to delete contact')
-    } finally {
-      setIsSubmitting(false)
     }
   }
 
   if (isLoadingLocal) {
-    return <div>Loading...</div>
+    return <div className="flex items-center justify-center min-h-screen">Loading contacts...</div>
+  }
+
+  if (isErrorLocal) {
+    return <div className="flex items-center justify-center min-h-screen text-red-600">Error loading contacts</div>
   }
 
   return (
-    <div className="container py-10">
+    <div className="container py-10 max-w-7xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight">Manage your contacts</h1>
         <p className="mt-2 text-muted-foreground">
           View and manage your contacts across all platforms. Your contacts are automatically synced with Hubspot and Pipedrive CRMs every 30 seconds.
         </p>
+        <button 
+          onClick={async () => {
+            try {
+              const response = await fetch('/api/sync', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...getAuthHeaders()
+                }
+              });
+              if (response.ok) {
+                toast.success('Sync completed successfully');
+              } else {
+                toast.error('Sync failed');
+              }
+              mutate(); // Refresh the contacts list
+            } catch (error: unknown) {
+              toast.error('Sync failed: ' + String(error));
+            }
+          }} 
+          className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Sync Now
+        </button>
       </div>
-      <div className="mb-4 flex justify-end">
-        <ContactForm onSubmit={handleCreate} isSubmitting={isSubmitting} />
+      <div className="mb-8">
+        {selectedContact ? (
+          <ContactForm
+            contact={selectedContact}
+            onSubmit={(data: NewContact) => handleUpdate({ ...selectedContact, ...data })}
+            onCancel={() => setSelectedContact(null)}
+            isOpen={true}
+            onOpenChange={(open) => {
+              if (!open) setSelectedContact(null)
+            }}
+          />
+        ) : (
+          <ContactForm
+            onSubmit={handleCreate}
+            onCancel={() => setIsFormOpen(false)}
+            isOpen={isFormOpen}
+            onOpenChange={setIsFormOpen}
+            key={isFormOpen ? 'form-open' : 'form-closed'}
+          />
+        )}
       </div>
       <ContactsTable
-        contacts={contacts}
-        isLoading={isLoadingLocal}
-        isError={isErrorLocal}
-        onUpdate={handleUpdate}
+        contacts={contacts || []}
+        onEdit={setSelectedContact}
         onDelete={handleDelete}
-        isSubmitting={isSubmitting}
       />
     </div>
   )

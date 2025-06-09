@@ -41,63 +41,23 @@ export async function GET(request: NextRequest) {
     
     // Get contacts without syncing first
     console.log('Fetching all contacts...');
-    const allContacts = await withTimeout(Contact.aggregate([
-      { $match: { customerId: auth.customerId } },
-      { $unwind: '$sources' },
+    const allContacts = await withTimeout(Contact.find(
+      { customerId: auth.customerId },
       {
-        $group: {
-          _id: { $toLower: '$email' },
-          doc: { 
-            $first: {
-              $cond: {
-                if: { $eq: ['$sources', 'local'] },
-                then: '$$ROOT',
-                else: '$$CURRENT'
-              }
-            }
-          },
-          sources: { $addToSet: '$sources' },
-          hubspotIds: { $addToSet: '$hubspotId' },
-          pipedriveIds: { $addToSet: '$pipedriveId' },
-          createdAt: { $min: '$createdAt' },
-          updatedAt: { $max: '$updatedAt' }
-        }
-      },
-      {
-        $project: {
-          _id: '$doc._id',
-          id: '$doc.id',
-          name: '$doc.name',
-          email: '$doc.email',
-          phone: '$doc.phone',
-          jobTitle: '$doc.jobTitle',
-          pronouns: '$doc.pronouns',
-          customerId: '$doc.customerId',
-          sources: 1,
-          hubspotId: {
-            $first: {
-              $filter: {
-                input: '$hubspotIds',
-                as: 'id',
-                cond: { $ne: ['$$id', null] }
-              }
-            }
-          },
-          pipedriveId: {
-            $first: {
-              $filter: {
-                input: '$pipedriveIds',
-                as: 'id',
-                cond: { $ne: ['$$id', null] }
-              }
-            }
-          },
-          createdAt: 1,
-          updatedAt: 1
-        }
-      },
-      { $sort: { createdAt: -1 } }
-    ]), TIMEOUT);
+        id: 1,
+        name: 1,
+        email: 1,
+        phone: 1,
+        jobTitle: 1,
+        pronouns: 1,
+        sources: 1,
+        hubspotId: 1,
+        pipedriveId: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        _id: 0
+      }
+    ).sort({ createdAt: -1 }), TIMEOUT);
     
     // Try to sync in the background
     try {
@@ -194,18 +154,18 @@ export async function POST(request: NextRequest) {
       );
       console.log('Contact updated:', contact);
     } else {
-      // Create new contact
+    // Create new contact
       console.log('Creating new contact');
       contact = await Contact.create({
-        id: crypto.randomUUID(),
-        name,
-        email,
-        phone,
-        jobTitle,
-        pronouns,
-        customerId: auth.customerId,
+      id: crypto.randomUUID(),
+      name,
+      email,
+      phone,
+      jobTitle,
+      pronouns,
+      customerId: auth.customerId,
         sources: ['local']
-      });
+    });
       console.log('New contact created:', contact);
 
       // Sync with CRMs

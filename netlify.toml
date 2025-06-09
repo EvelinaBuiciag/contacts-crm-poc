@@ -1,10 +1,11 @@
 [build]
-  command = "npm run build"
-  publish = "dist/standalone/.next"
+  command = "npm install --legacy-peer-deps && npm run build"
+  publish = ".next"
 
 [build.environment]
+  NODE_VERSION = "18.17.0"
   NEXT_TELEMETRY_DISABLED = "1"
-  NODE_VERSION = "20"
+  NPM_FLAGS = "--legacy-peer-deps"
   NEXT_USE_NETLIFY_EDGE = "true"
   NEXT_FORCE_EDGE_IMAGES = "true"
 
@@ -12,10 +13,9 @@
   package = "@netlify/plugin-nextjs"
 
 [functions]
-  # Increase the timeout for all functions
   node_bundler = "esbuild"
-  external_node_modules = ["mongodb", "mongoose"]
-  included_files = ["src/models/**", "src/lib/**"]
+  external_node_modules = ["sharp"]
+  included_files = [".next/standalone/**", ".next/static/**"]
 
 [[headers]]
   for = "/*"
@@ -41,15 +41,14 @@
     max-age=31536000,
     immutable'''
 
-# Handle Next.js static files
 [[redirects]]
-  from = "/_next/static/*"
-  to = "/static/:splat"
+  from = "/api/*"
+  to = "/.netlify/functions/server/api/:splat"
   status = 200
+  force = true
 
-# Handle Next.js routing
 [[redirects]]
   from = "/*"
-  to = "/.netlify/functions/nextjs-server"
+  to = "/.netlify/functions/server"
   status = 200
   force = true 

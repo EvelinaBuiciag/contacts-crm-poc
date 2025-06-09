@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Contact } from "@/types/contact"
+import { Contact, Source } from "@/types/contact"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -10,25 +10,42 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, Pencil, Wand2 } from "lucide-react"
+import { Plus, Pencil } from "lucide-react"
 import { faker } from "@faker-js/faker"
 
-type NewContact = Omit<Contact, 'id' | 'createdAt' | 'updatedAt'>
+export interface NewContact {
+  name: string
+  email: string
+  phone: string
+  jobTitle: string
+  pronouns: string
+  sources: Source[]
+}
 
 interface ContactFormProps {
   contact?: Contact
-  onSubmit: (contact: Contact | NewContact) => Promise<void>
+  onSubmit: (contact: NewContact) => Promise<void>
+  onCancel: () => void
   isSubmitting?: boolean
+  isOpen: boolean
+  onOpenChange: (open: boolean) => void
 }
 
-export function ContactForm({ contact, onSubmit, isSubmitting = false }: ContactFormProps) {
-  const [open, setOpen] = useState(false)
+export function ContactForm({ 
+  contact, 
+  onSubmit, 
+  onCancel, 
+  isSubmitting = false,
+  isOpen,
+  onOpenChange
+}: ContactFormProps) {
   const [formData, setFormData] = useState<NewContact>({
     name: contact?.name ?? '',
     email: contact?.email ?? '',
     phone: contact?.phone ?? '',
     jobTitle: contact?.jobTitle ?? '',
     pronouns: contact?.pronouns ?? '',
+    sources: contact?.sources ?? ['local']
   })
 
   // Update form data when contact changes
@@ -40,51 +57,47 @@ export function ContactForm({ contact, onSubmit, isSubmitting = false }: Contact
         phone: contact.phone,
         jobTitle: contact.jobTitle,
         pronouns: contact.pronouns,
+        sources: contact.sources
       })
     }
   }, [contact])
 
-  const generateRandomData = () => {
-    const pronouns = ['he/him', 'she/her', 'they/them', 'he/they', 'she/they']
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await onSubmit(formData)
+    onOpenChange(false)
+  }
+
+  const handleFill = () => {
+    const pronouns = ['he/him', 'she/her', 'they/them']
     setFormData({
       name: faker.person.fullName(),
       email: faker.internet.email(),
       phone: faker.phone.number(),
       jobTitle: faker.person.jobTitle(),
       pronouns: faker.helpers.arrayElement(pronouns),
+      sources: ['local']
     })
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      if (contact) {
-        // If we have a contact, include the ID for updates
-        await onSubmit({
-          ...formData,
-          id: contact.id,
-          createdAt: contact.createdAt,
-          updatedAt: contact.updatedAt,
-        })
-      } else {
-        // For new contacts, don't include ID
-        await onSubmit(formData)
-      }
-      setOpen(false)
+  const handleClear = () => {
       setFormData({
         name: '',
         email: '',
         phone: '',
         jobTitle: '',
         pronouns: '',
+      sources: ['local']
       })
-    } catch (error) {
-      console.error('Error submitting form:', error)
-    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button variant={contact ? "ghost" : "default"} size={contact ? "icon" : "default"}>
           {contact ? (
@@ -106,8 +119,10 @@ export function ContactForm({ contact, onSubmit, isSubmitting = false }: Contact
             <Label htmlFor="name">Name</Label>
             <Input
               id="name"
+              name="name"
+              placeholder="Name"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={handleChange}
               required
             />
           </div>
@@ -115,9 +130,11 @@ export function ContactForm({ contact, onSubmit, isSubmitting = false }: Contact
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
+              name="email"
               type="email"
+              placeholder="Email"
               value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              onChange={handleChange}
               required
             />
           </div>
@@ -125,9 +142,10 @@ export function ContactForm({ contact, onSubmit, isSubmitting = false }: Contact
             <Label htmlFor="phone">Phone</Label>
             <Input
               id="phone"
-              type="tel"
+              name="phone"
+              placeholder="Phone"
               value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              onChange={handleChange}
               required
             />
           </div>
@@ -135,8 +153,10 @@ export function ContactForm({ contact, onSubmit, isSubmitting = false }: Contact
             <Label htmlFor="jobTitle">Job Title</Label>
             <Input
               id="jobTitle"
+              name="jobTitle"
+              placeholder="Job Title"
               value={formData.jobTitle}
-              onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
+              onChange={handleChange}
               required
             />
           </div>
@@ -144,26 +164,25 @@ export function ContactForm({ contact, onSubmit, isSubmitting = false }: Contact
             <Label htmlFor="pronouns">Pronouns</Label>
             <Input
               id="pronouns"
+              name="pronouns"
+              placeholder="Pronouns"
               value={formData.pronouns}
-              onChange={(e) => setFormData({ ...formData, pronouns: e.target.value })}
+              onChange={handleChange}
               required
             />
+          </div>
+          <div className="flex justify-between">
+            <Button type="button" variant="outline" onClick={handleFill}>
+              Fill with Fake Data
+            </Button>
+            <Button type="button" variant="outline" onClick={handleClear}>
+              Clear
+            </Button>
           </div>
           <div className="flex gap-2">
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Saving...' : contact ? 'Update Contact' : 'Add Contact'}
             </Button>
-            {!contact && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={generateRandomData}
-                disabled={isSubmitting}
-              >
-                <Wand2 className="mr-2 h-4 w-4" />
-                Generate Random
-              </Button>
-            )}
           </div>
         </form>
       </DialogContent>

@@ -14,6 +14,15 @@ export interface Contact {
   sources: Source[];
 }
 
+export interface NewContact {
+  name: string;
+  email: string;
+  phone: string;
+  jobTitle: string;
+  pronouns: string;
+  sources: Source[];
+}
+
 export interface ContactsResponse {
   contacts: Contact[];
 } 
