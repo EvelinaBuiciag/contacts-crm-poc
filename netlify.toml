@@ -41,14 +41,14 @@
     max-age=31536000,
     immutable'''
 
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/server/api/:splat"
-  status = 200
-  force = true
+# [[redirects]]
+#   from = "/api/*"
+#   to = "/.netlify/functions/server/api/:splat"
+#   status = 200
+#   force = true
 
-[[redirects]]
-  from = "/*"
-  to = "/.netlify/functions/server"
-  status = 200
-  force = true 
+# [[redirects]]
+#   from = "/*"
+#   to = "/.netlify/functions/server"
+#   status = 200
+#   force = true 
