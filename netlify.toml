@@ -1,6 +1,6 @@
 [build]
   command = "npm install --legacy-peer-deps && npm run build"
-  publish = ".next"
+  # publish = ".next"  # Let the Netlify Next.js plugin handle this
 
 [build.environment]
   NODE_VERSION = "18.17.0"
