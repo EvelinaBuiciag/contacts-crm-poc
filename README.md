@@ -38,6 +38,23 @@ A modern contact management app with real-time two-way sync to HubSpot and Piped
 
 ---
 
+## Integration.app Console Setup
+
+1. **Go to your [Integration.app Console](https://console.integration.app/)**
+2. **Add Apps:**
+   - Add both **Pipedrive** and **HubSpot** as external apps to your workspace.
+   - Make sure both apps are connected and show a green status.
+3. **Define Actions for Each CRM:**
+   - For both Pipedrive and HubSpot, define the following actions:
+     - `list-contacts`
+     - `create-contact`
+     - `update-contact`
+     - `delete-contact`
+   - These actions should be configured as described in the [Integration.app docs](http://console.integration.app/docs).
+4. **Get your workspace key and secret** from the Integration.app console and use them in your `.env` and Vercel environment variables.
+
+---
+
 ## Deploying to Vercel (Recommended)
 
 1. **Import your repo** at [vercel.com/import](https://vercel.com/import) and connect your GitHub account.
@@ -60,9 +77,23 @@ A modern contact management app with real-time two-way sync to HubSpot and Piped
 
 ---
 
-## Support
+## Troubleshooting & Known Issues
+
+### Duplicate contacts on create/sync
+- There is a known issue where creating a contact from the app or from HubSpot may result in duplicate records in Pipedrive. This can cause sync issues until the duplicates are manually resolved.
+- If you encounter this, delete the duplicate contacts in Pipedrive and re-sync.
+- We are actively working on a more robust deduplication and sync strategy.
+
+### Contacts not syncing or ghost contacts?
+- Make sure you have set up the Integration.app console with both CRMs and all 4 actions for each.
+- Ensure your MongoDB Atlas cluster allows access from Vercel (add `0.0.0.0/0` to IP Access List for testing).
+- If you see contacts re-appearing after deletion, check that deletions are being propagated to all systems and that your sync logic is not re-creating deleted contacts from CRM data.
+- Check Vercel function logs for errors in `/api/contacts` or `/api/sync`.
+- If you need to reset your data, you can clear your MongoDB collection and re-sync.
+
+### More help
+- See the [Integration.app docs](http://console.integration.app/docs) for details on configuring apps and actions.
 - For issues, open an issue on GitHub or contact the maintainer.
-- For Integration.app SDK help, see [Integration.app docs](https://docs.integration.app/).
 
 ---
 
